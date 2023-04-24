@@ -24,9 +24,21 @@ var (
 
 	tbOnly      = conf.Sysconfig.TbOnly
 	tbIgnore    = conf.Sysconfig.TbIgnore
-	tbOnlyStr   = strings.Join(tbOnly, ",")
-	tbIgnoreStr = strings.Join(tbIgnore, ",")
+	tbOnlyStr   = strings.Join(tbOnly, ",") + ","   // Add comma to end of string to make sure we don't match partial table names
+	tbIgnoreStr = strings.Join(tbIgnore, ",") + "," // Add comma to end of string to make sure we don't match partial table names
 )
+
+type colInfo struct {
+	Field      string
+	Type       string
+	Collation  interface{}
+	Null       string
+	Key        string
+	Default    interface{}
+	Extra      string
+	Privileges string
+	Comment    string
+}
 
 func main() {
 	// Connect to database1
@@ -81,15 +93,15 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		if len(tbOnly) > 0 && !strings.Contains(tbOnlyStr, tableName) {
+		if len(tbOnly) > 0 && !strings.Contains(tbOnlyStr, tableName+",") {
 			continue
 		}
-		if len(tbIgnore) > 0 && strings.Contains(tbIgnoreStr, tableName) {
+		if len(tbIgnore) > 0 && strings.Contains(tbIgnoreStr, tableName+",") {
 			continue
 		}
 
 		// Get list of columns from table in database1
-		colRows, err := db1.Query(fmt.Sprintf("SHOW COLUMNS FROM %s", tableName))
+		colRows, err := db1.Query(fmt.Sprintf("SHOW FULL COLUMNS FROM %s", tableName))
 		if err != nil {
 			panic(err)
 		}
@@ -99,42 +111,35 @@ func main() {
 			// Get list of columns from table in database2
 			colMap := make(map[string]bool)
 			colMap["id"] = true // Assume there is an "id" column
-			colRows2, err := db2.Query(fmt.Sprintf("SHOW COLUMNS FROM %s", tableName))
+			colRows2, err := db2.Query(fmt.Sprintf("SHOW FULL COLUMNS FROM %s", tableName))
 			if err != nil {
 				panic(err)
 			}
 			defer colRows2.Close()
 			for colRows2.Next() {
-				var colName string
-				var colType string
-				var colNull string
-				var colKey string
-				var colDefault interface{}
-				var colExtra string
-				err := colRows2.Scan(&colName, &colType, &colNull, &colKey, &colDefault, &colExtra)
+				var colInfo = colInfo{}
+				err := colRows2.Scan(&colInfo.Field, &colInfo.Type, &colInfo.Collation, &colInfo.Null, &colInfo.Key,
+					&colInfo.Default, &colInfo.Extra, &colInfo.Privileges, &colInfo.Comment)
 				if err != nil {
 					panic(err)
 				}
-				colMap[colName] = true
+				colMap[colInfo.Field] = true
 			}
 
 			// Compare columns
 			var newCols []string
 			for colRows.Next() {
-				var colName string
-				var colType string
-				var colNull string
-				var colKey string
-				var colDefault interface{}
-				var colExtra string
-				err := colRows.Scan(&colName, &colType, &colNull, &colKey, &colDefault, &colExtra)
+				var colInfo = colInfo{}
+				err := colRows.Scan(&colInfo.Field, &colInfo.Type, &colInfo.Collation, &colInfo.Null, &colInfo.Key,
+					&colInfo.Default, &colInfo.Extra, &colInfo.Privileges, &colInfo.Comment)
 				if err != nil {
 					panic(err)
 				}
-				if !colMap[colName] {
-					newCols = append(newCols, fmt.Sprintf("\nADD COLUMN %s %s %s%s%s", colName, colType, map[bool]string{true: "NULL", false: "NOT NULL"}[colNull == "YES"],
-						map[bool]string{true: fmt.Sprintf(" DEFAULT %v", colDefault), false: ""}[colDefault != nil],
-						map[bool]string{true: " " + strings.ToUpper(colExtra), false: ""}[colExtra != ""]))
+				if !colMap[colInfo.Field] {
+					newCols = append(newCols, fmt.Sprintf("\nADD COLUMN %s %s %s%s%s COMMENT '%s'", colInfo.Field, colInfo.Type,
+						map[bool]string{true: "NULL", false: "NOT NULL"}[colInfo.Null == "YES"],
+						map[bool]string{true: fmt.Sprintf(" DEFAULT %v", colInfo.Default), false: ""}[colInfo.Default != nil],
+						map[bool]string{true: " " + strings.ToUpper(colInfo.Extra), false: ""}[colInfo.Extra != ""], colInfo.Comment))
 				}
 			}
 
@@ -154,22 +159,19 @@ func main() {
 			var cols []string
 			var priStr string = ""
 			for colRows.Next() {
-				var colName string
-				var colType string
-				var colNull string
-				var colKey string
-				var colDefault interface{}
-				var colExtra string
-				err := colRows.Scan(&colName, &colType, &colNull, &colKey, &colDefault, &colExtra)
+				var colInfo = colInfo{}
+				err := colRows.Scan(&colInfo.Field, &colInfo.Type, &colInfo.Collation, &colInfo.Null, &colInfo.Key,
+					&colInfo.Default, &colInfo.Extra, &colInfo.Privileges, &colInfo.Comment)
 				if err != nil {
 					panic(err)
 				}
-				if colKey == "PRI" {
-					priStr = fmt.Sprintf("PRIMARY KEY (%s) USING BTREE", colName)
+				if colInfo.Key == "PRI" {
+					priStr = fmt.Sprintf("PRIMARY KEY (%s) USING BTREE", colInfo.Field)
 				}
-				cols = append(cols, fmt.Sprintf("\n%s %s %s%s%s", colName, colType, map[bool]string{true: "NULL", false: "NOT NULL"}[colNull == "YES"],
-					map[bool]string{true: fmt.Sprintf(" DEFAULT %v", colDefault), false: ""}[colDefault != nil],
-					map[bool]string{true: " " + strings.ToUpper(colExtra), false: ""}[colExtra != ""]))
+				cols = append(cols, fmt.Sprintf("\n%s %s %s%s%s COMMENT '%s'", colInfo.Field, colInfo.Type,
+					map[bool]string{true: "NULL", false: "NOT NULL"}[colInfo.Null == "YES"],
+					map[bool]string{true: fmt.Sprintf(" DEFAULT %v", colInfo.Default), false: ""}[colInfo.Default != nil],
+					map[bool]string{true: " " + strings.ToUpper(colInfo.Extra), false: ""}[colInfo.Extra != ""], colInfo.Comment))
 			}
 			sql := fmt.Sprintf("CREATE TABLE %s (%s) \n%s;", tableName, strings.Join(cols, ", "), priStr)
 			fmt.Println(sql)
