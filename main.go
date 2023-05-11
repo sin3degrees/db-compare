@@ -138,7 +138,7 @@ func main() {
 				if !colMap[colInfo.Field] {
 					newCols = append(newCols, fmt.Sprintf("\nADD COLUMN %s %s %s%s%s COMMENT '%s'", colInfo.Field, colInfo.Type,
 						map[bool]string{true: "NULL", false: "NOT NULL"}[colInfo.Null == "YES"],
-						map[bool]string{true: fmt.Sprintf(" DEFAULT %v", colInfo.Default), false: ""}[colInfo.Default != nil],
+						map[bool]string{true: fmt.Sprintf(" DEFAULT %s", colInfo.Default), false: ""}[colInfo.Default != nil],
 						map[bool]string{true: " " + strings.ToUpper(colInfo.Extra), false: ""}[colInfo.Extra != ""], colInfo.Comment))
 				}
 			}
@@ -170,7 +170,7 @@ func main() {
 				}
 				cols = append(cols, fmt.Sprintf("\n%s %s %s%s%s COMMENT '%s'", colInfo.Field, colInfo.Type,
 					map[bool]string{true: "NULL", false: "NOT NULL"}[colInfo.Null == "YES"],
-					map[bool]string{true: fmt.Sprintf(" DEFAULT %v", colInfo.Default), false: ""}[colInfo.Default != nil],
+					map[bool]string{true: fmt.Sprintf(" DEFAULT %s", colInfo.Default), false: ""}[colInfo.Default != nil],
 					map[bool]string{true: " " + strings.ToUpper(colInfo.Extra), false: ""}[colInfo.Extra != ""], colInfo.Comment))
 			}
 			sql := fmt.Sprintf("CREATE TABLE %s (%s) \n%s;", tableName, strings.Join(cols, ", "), priStr)
