@@ -1,0 +1,16 @@
+db_src: # 源数据库配置
+  type: mysql # 数据库类型
+  host: localhost # 数据库地址
+  port: 3306 # 数据库端口
+  user: root # 数据库用户名
+  password: 1234 # 数据库密码
+  database: test # 数据库名称
+db_dst: # 目标数据库配置
+  type: mysql # 数据库类型
+  host: localhost # 数据库地址
+  port: 3306 # 数据库端口
+  user: root  # 数据库用户名
+  password: 1234 # 数据库密码
+  database: test2 # 数据库名称
+tb_only: [] # 只比对的表
+tb_ignore: [] # 忽略比对的表

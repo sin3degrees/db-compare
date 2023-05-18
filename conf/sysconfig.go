@@ -1,11 +1,10 @@
 package conf
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
-	jsoniter "github.com/json-iterator/go"
+	"gopkg.in/yaml.v3"
 )
 
 var Sysconfig = &sysconfig{}
@@ -18,30 +17,30 @@ func init() {
 		panic(err)
 	}
 	Dir = dir
-	//指定对应的json配置文件
-	b, err := ioutil.ReadFile(dir + "/config.json")
+	//指定对应的yml配置文件
+	b, err := os.ReadFile(dir + "/config.yml")
 	if err != nil {
 		panic("Sys config read err")
 	}
-	err = jsoniter.Unmarshal(b, Sysconfig)
+	err = yaml.Unmarshal(b, Sysconfig)
 	if err != nil {
 		panic(err)
 	}
 }
 
 type db struct {
-	Type     string `json:"type"`
-	Host     string `json:"host"`
-	Port     string `json:"port"`
-	Database string `json:"database"`
-	User     string `json:"user"`
-	Password string `json:"password"`
+	Type     string `yaml:"type"`
+	Host     string `yaml:"host"`
+	Port     string `yaml:"port"`
+	Database string `yaml:"database"`
+	User     string `yaml:"user"`
+	Password string `yaml:"password"`
 }
 
 type sysconfig struct {
 	//数据库配置
-	DBSrc    db       `json:"db_src"`
-	DBDst    db       `json:"db_dst"`
-	TbOnly   []string `json:"tb_only"`
-	TbIgnore []string `json:"tb_ignore"`
+	DBSrc    db       `yaml:"db_src"`
+	DBDst    db       `yaml:"db_dst"`
+	TbOnly   []string `yaml:"tb_only"`
+	TbIgnore []string `yaml:"tb_ignore"`
 }
