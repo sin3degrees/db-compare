@@ -56,7 +56,7 @@ func main() {
 	defer db2.Close()
 
 	// Get list of tables from database1
-	rows, err := db1.Query("SHOW TABLES")
+	rows, err := db1.Query("SHOW FULL TABLES")
 	if err != nil {
 		panic(err)
 	}
@@ -89,7 +89,8 @@ func main() {
 	// Iterate over tables and compare with database2
 	for rows.Next() {
 		var tableName string
-		err := rows.Scan(&tableName)
+		var tableType string
+		err := rows.Scan(&tableName, &tableType)
 		if err != nil {
 			panic(err)
 		}
@@ -100,6 +101,52 @@ func main() {
 			continue
 		}
 
+		if tableType == "VIEW" {
+			viewRows, err := db1.Query(fmt.Sprintf("SELECT VIEW_DEFINITION FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = '%s'", tableName))
+			if err != nil {
+				panic(err)
+			}
+			defer viewRows.Close()
+			var viewDef string
+			for viewRows.Next() {
+				err := viewRows.Scan(&viewDef)
+				if err != nil {
+					panic(err)
+				}
+			}
+			viewDef = strings.ReplaceAll(viewDef, "`"+conf.Sysconfig.DBSrc.Database+"`.", "")
+			if !tableMap[tableName] {
+				sql := fmt.Sprintf("CREATE VIEW %s AS %s;", tableName, viewDef)
+				_, err = file.WriteString(sql + "\n\n")
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+			} else {
+				viewRows2, err := db2.Query(fmt.Sprintf("SELECT VIEW_DEFINITION FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = '%s'", tableName))
+				if err != nil {
+					panic(err)
+				}
+				defer viewRows2.Close()
+				var viewDef2 string
+				for viewRows2.Next() {
+					err := viewRows2.Scan(&viewDef2)
+					if err != nil {
+						panic(err)
+					}
+				}
+				viewDef2 = strings.ReplaceAll(viewDef2, "`"+conf.Sysconfig.DBDst.Database+"`.", "")
+				if viewDef != viewDef2 {
+					sql := fmt.Sprintf("ALTER VIEW %s AS %s;", tableName, viewDef)
+					_, err = file.WriteString(sql + "\n\n")
+					if err != nil {
+						fmt.Println(err)
+						return
+					}
+				}
+			}
+			continue
+		}
 		// Get list of columns from table in database1
 		colRows, err := db1.Query(fmt.Sprintf("SHOW FULL COLUMNS FROM %s", tableName))
 		if err != nil {
