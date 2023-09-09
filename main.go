@@ -220,7 +220,8 @@ func main() {
 					map[bool]string{true: fmt.Sprintf(" DEFAULT %s", colInfo.Default), false: ""}[colInfo.Default != nil],
 					map[bool]string{true: " " + strings.ToUpper(colInfo.Extra), false: ""}[colInfo.Extra != ""], colInfo.Comment))
 			}
-			sql := fmt.Sprintf("CREATE TABLE %s (%s) \n%s;", tableName, strings.Join(cols, ", "), priStr)
+			sql := fmt.Sprintf("CREATE TABLE %s (%s, \n%s);",
+				tableName, strings.Join(cols, ", "), priStr)
 			fmt.Println(sql)
 			// 写入字符串
 			_, err = file.WriteString(sql + "\n\n")
